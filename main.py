@@ -2,18 +2,32 @@ import os
 import glob
 from datetime import datetime
 from flask import Flask,request,json,Response
+import logging
+import sys
 
 if os.getenv('ttl') is None:
     ttl = 15
 else:
     ttl = os.getenv('ttl')
 
+log = logging.getLogger('')
+format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+ch = logging.StreamHandler(sys.stdout)
+ch.setFormatter(format)
+log.addHandler(ch)
+
+if os.getenv('DEBUG') == "True":
+    log.setLevel(logging.DEBUG)
+    logging.info("Debug logging enabled")
+else:
+    log.setLevel(logging.INFO)
+
 app = Flask(__name__)
 
 def time_diff(timestamp):
     metrics_date = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
     difference = datetime.now() - metrics_date
-    print(difference)
     if difference.total_seconds() >= ttl * 60:
         return True
     else:
@@ -24,7 +38,7 @@ def metrics():
     metrics_result = '#Enviro Metrics\n'
     for json_file in glob.iglob('readings/*.json'):
         data = json.load(open(json_file))
-        print(data)
+        logging.debug("JSON contents: {0}".format(data))
         if time_diff(data["timestamp"]):
             for reading in data["readings"]:
                 if "moisture" in reading:
@@ -40,7 +54,7 @@ def metrics():
 @app.route('/endpoint',methods=['POST'])
 def endpoint():
     data = request.json
-    print("received data: ", request.json)
+    logging.debug("Received JSON: {0}".format(request.json))
     nickname = data["nickname"]
     file_out = "readings/{0}.json".format(nickname)
     with open(file_out, "w") as outfile:
